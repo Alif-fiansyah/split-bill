@@ -1,25 +1,19 @@
 import { useState, useEffect } from 'react';
 import { 
   Plus, Trash2, Users, Receipt, Share2, Check, 
-  ExternalLink, RotateCcw, Coins, Copy, CreditCard 
+  RotateCcw, Coins, CreditCard, ChevronDown, ChevronUp,
+  Sparkles, Wallet, UtensilsCrossed, AlertCircle
 } from 'lucide-react';
 
 export default function App() {
-  // Rekening BCA & BRI
-  const bankAccounts = [
-    { id: 'bca', bank: 'BCA', number: '0092994366', holder: 'Muhammad Rizky Alifiansyah' },
-    { id: 'bri', bank: 'BRI', number: '583901011084500', holder: 'Muhammad Rizky Alifiansyah' }
-  ];
-
-  const [copiedBank, setCopiedBank] = useState(null);
-
-  // Default state kosong (fresh)
+  // 1. Data Peserta
   const [members, setMembers] = useState(() => {
     const saved = localStorage.getItem('sb_members');
     return saved ? JSON.parse(saved) : [];
   });
   const [newMember, setNewMember] = useState('');
 
+  // 2. Data Menu Pesanan
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('sb_items');
     return saved ? JSON.parse(saved) : [];
@@ -28,10 +22,17 @@ export default function App() {
   const [itemPrice, setItemPrice] = useState('');
   const [itemQty, setItemQty] = useState(1);
 
+  // 3. Biaya Tambahan
   const [taxPercent, setTaxPercent] = useState(() => Number(localStorage.getItem('sb_tax')) || 10);
   const [servicePercent, setServicePercent] = useState(() => Number(localStorage.getItem('sb_service')) || 0);
   const [discountAmount, setDiscountAmount] = useState(() => Number(localStorage.getItem('sb_discount')) || 0);
   const [roundUp, setRoundUp] = useState(true);
+
+  // 4. Rekening Pembayaran Dinamis (Disimpan di HP masing-masing)
+  const [bankName, setBankName] = useState(() => localStorage.getItem('sb_bank_name') || 'BCA');
+  const [accNumber, setAccNumber] = useState(() => localStorage.getItem('sb_acc_number') || '');
+  const [accHolder, setAccHolder] = useState(() => localStorage.getItem('sb_acc_holder') || '');
+  const [showBankForm, setShowBankForm] = useState(false);
 
   const [copied, setCopied] = useState(false);
 
@@ -41,7 +42,10 @@ export default function App() {
     localStorage.setItem('sb_tax', taxPercent.toString());
     localStorage.setItem('sb_service', servicePercent.toString());
     localStorage.setItem('sb_discount', discountAmount.toString());
-  }, [members, items, taxPercent, servicePercent, discountAmount]);
+    localStorage.setItem('sb_bank_name', bankName);
+    localStorage.setItem('sb_acc_number', accNumber);
+    localStorage.setItem('sb_acc_holder', accHolder);
+  }, [members, items, taxPercent, servicePercent, discountAmount, bankName, accNumber, accHolder]);
 
   const handleAddMember = (e) => {
     e.preventDefault();
@@ -110,7 +114,7 @@ export default function App() {
   };
 
   const handleResetData = () => {
-    if (confirm('Yakin ingin mereset dan mengosongkan semua data patungan?')) {
+    if (confirm('Kosongkan semua pesanan dan nama teman?')) {
       setMembers([]);
       setItems([]);
       setDiscountAmount(0);
@@ -120,12 +124,7 @@ export default function App() {
     }
   };
 
-  const handleCopyNorek = (bankId, number) => {
-    navigator.clipboard.writeText(number);
-    setCopiedBank(bankId);
-    setTimeout(() => setCopiedBank(null), 2000);
-  };
-
+  // Kalkulasi Proporsional
   const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const memberSubtotals = {};
@@ -164,260 +163,297 @@ export default function App() {
   });
 
   const generateMessageText = () => {
+    const paymentLine = accNumber
+      ? `\n💳 *Transfer ke:*\n• *${bankName}*: ${accNumber} ${accHolder ? `(a/n ${accHolder})` : ''}`
+      : '';
+
     const lines = [
       '🧾 *RINCIAN PATUNGAN (SPLIT-BILL)*',
       '────────────────────────────',
       ...(members.length > 0 
         ? members.map(m => `👤 *${m}*: Rp ${(memberTotals[m] || 0).toLocaleString('id-ID')}`)
-        : ['(Belum ada rincian peserta)']),
+        : ['(Belum ada rincian)']),
       '────────────────────────────',
-      `💰 *Total Tagihan*: Rp ${Math.round(totalBill).toLocaleString('id-ID')}`,
+      `💰 *Total*: Rp ${Math.round(totalBill).toLocaleString('id-ID')}`,
+      paymentLine,
       '',
-      '💳 *Transfer Pembayaran ke:*',
-      ...bankAccounts.map(b => `• *${b.bank}*: ${b.number} (a/n ${b.holder})`),
-      '',
-      '_Dihitung via split.lifianzhi.my.id_'
+      '_Dihitung otomatis via split.lifianzhi.my.id_'
     ];
     return lines.filter(Boolean).join('\n');
   };
 
-  const handleCopyWhatsApp = () => {
+  const handleShareWhatsApp = () => {
+    const text = generateMessageText();
+    const encoded = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+  };
+
+  const handleCopyText = () => {
     navigator.clipboard.writeText(generateMessageText());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleOpenWhatsApp = () => {
-    const encoded = encodeURIComponent(generateMessageText());
-    window.open(`https://wa.me/?text=${encoded}`, '_blank');
-  };
-
   return (
-    <div className="min-h-screen bg-amber-50 text-slate-900 overflow-x-hidden">
-      <main className="max-w-2xl mx-auto px-3.5 sm:px-6 py-5 sm:py-8 antialiased selection:bg-yellow-300">
+    <div className="min-h-screen bg-[#F6F4EE] text-neutral-900 pb-12 selection:bg-[#FFE600] selection:text-black">
+      <main className="max-w-xl mx-auto px-4 pt-6 sm:pt-10">
         
-        {/* Header */}
-        <header className="bg-yellow-300 border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
-          <div className="flex justify-between items-start gap-2">
+        {/* Header Retro-Modern */}
+        <header className="bg-[#FFE600] border-[2.5px] border-black shadow-[4px_4px_0px_0px_#000] p-4 sm:p-5 rounded-2xl mb-6 relative overflow-hidden">
+          <div className="flex justify-between items-center gap-3 relative z-10">
             <div>
-              <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2 tracking-tight uppercase">
-                <Receipt className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" /> SPLIT-BILL
-              </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-800 mt-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="bg-black text-[#FFE600] p-1.5 rounded-lg border border-black shadow-[2px_2px_0px_0px_#000]">
+                  <Receipt className="w-5 h-5 stroke-[2.5]" />
+                </span>
+                <h1 className="text-2xl font-black tracking-tight font-['Space_Grotesk'] uppercase text-black">
+                  SPLIT-BILL
+                </h1>
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-neutral-800">
                 Bagi rata, bayar pas, pertemanan aman.
               </p>
             </div>
+            
             <button
               onClick={handleResetData}
-              title="Reset data"
-              className="p-2 bg-white border-2 border-black rounded-lg shadow-neo-sm hover:translate-x-0.5 hover:translate-y-0.5 active:translate-x-1 active:translate-y-1 transition shrink-0"
+              title="Reset Semua"
+              className="p-2.5 bg-white border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] transition text-black shrink-0"
             >
-              <RotateCcw className="w-4 h-4 text-slate-800" />
+              <RotateCcw className="w-4 h-4 stroke-[2.5]" />
             </button>
           </div>
         </header>
 
-        {/* Bagian 1: Peserta */}
-        <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
-          <h2 className="text-sm sm:text-base font-black flex items-center gap-2 mb-3 tracking-tight">
-            <Users className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 shrink-0" /> Siapa yang ikut patungan?
-          </h2>
+        {/* 1. Bagian Peserta */}
+        <section className="bg-white border-[2.5px] border-black shadow-[4px_4px_0px_0px_#000] p-4 sm:p-5 rounded-2xl mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-neutral-800 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#6366F1] border border-black"></span>
+              Siapa Saja yang Ikut?
+            </h2>
+            <span className="text-[11px] font-black bg-[#F3F0E6] px-2 py-0.5 rounded-md border border-black/20">
+              {members.length} Orang
+            </span>
+          </div>
+
           <form onSubmit={handleAddMember} className="flex gap-2 mb-3.5">
             <input
               type="text"
               placeholder="Ketik nama teman..."
               value={newMember}
               onChange={(e) => setNewMember(e.target.value)}
-              className="flex-1 min-w-0 border-2 border-black px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              className="flex-1 min-w-0 bg-[#FAFAF8] border-2 border-black px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:bg-white focus:shadow-[2px_2px_0px_0px_#000] transition placeholder:text-neutral-400"
             />
             <button
               type="submit"
-              className="bg-black text-white px-3.5 sm:px-5 py-2 rounded-xl font-black text-xs sm:text-sm shadow-neo-sm hover:bg-slate-800 active:translate-x-0.5 active:translate-y-0.5 transition flex items-center gap-1 shrink-0"
+              className="bg-[#6366F1] text-white px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm border-2 border-black shadow-[3px_3px_0px_0px_#000] hover:bg-[#5254db] active:translate-x-[2px] active:translate-y-[2px] transition flex items-center gap-1.5 shrink-0"
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span className="hidden xs:inline">Tambah</span>
+              <Plus className="w-4 h-4 stroke-[3]" /> Tambah
             </button>
           </form>
 
-          <div className="flex flex-wrap gap-1.5 sm:gap-2">
-            {members.map((name) => (
-              <span
-                key={name}
-                className="inline-flex items-center gap-1.5 bg-emerald-200 border-2 border-black px-2.5 sm:px-3 py-1 rounded-xl text-xs font-black shadow-neo-sm"
-              >
-                <span className="max-w-[120px] truncate">{name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveMember(name)}
-                  className="hover:text-red-600 active:scale-90 transition"
+          {members.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {members.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center gap-1.5 bg-[#A7F3D0] border-2 border-black px-3 py-1.5 rounded-xl text-xs font-black shadow-[2px_2px_0px_0px_#000]"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </span>
-            ))}
-            {members.length === 0 && (
-              <p className="text-xs text-slate-400 font-bold italic py-1">Belum ada orang. Tambahkan nama teman di atas.</p>
-            )}
-          </div>
+                  <span className="max-w-[120px] truncate">{name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMember(name)}
+                    className="hover:text-red-600 active:scale-90 transition p-0.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-neutral-300 rounded-xl p-3 text-center bg-[#FAF9F5]">
+              <p className="text-xs text-neutral-400 font-bold">
+                Belum ada orang. Tambahkan nama temanmu di atas.
+              </p>
+            </div>
+          )}
         </section>
 
-        {/* Bagian 2: Daftar Item */}
-        <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
-          <h2 className="text-sm sm:text-base font-black mb-3 tracking-tight">Menu & Item Pesanan</h2>
-          
+        {/* 2. Menu & Pesanan */}
+        <section className="bg-white border-[2.5px] border-black shadow-[4px_4px_0px_0px_#000] p-4 sm:p-5 rounded-2xl mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-neutral-800 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#EC4899] border border-black"></span>
+              Menu Pesanan
+            </h2>
+            <span className="text-[11px] font-black bg-[#F3F0E6] px-2 py-0.5 rounded-md border border-black/20">
+              {items.length} Item
+            </span>
+          </div>
+
           <form onSubmit={handleAddItem} className="flex flex-col sm:grid sm:grid-cols-12 gap-2 mb-4">
             <input
               type="text"
-              placeholder="Nama item..."
+              placeholder="Nama menu (Cth: Nasi Goreng)"
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
-              className="sm:col-span-5 border-2 border-black px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              className="sm:col-span-5 bg-[#FAFAF8] border-2 border-black px-3 py-2 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:bg-white focus:shadow-[2px_2px_0px_0px_#000] transition placeholder:text-neutral-400"
             />
             <input
               type="number"
-              placeholder="Harga (Rp)..."
+              placeholder="Harga (Rp)"
               value={itemPrice}
               onChange={(e) => setItemPrice(e.target.value)}
-              className="sm:col-span-4 border-2 border-black px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              className="sm:col-span-4 bg-[#FAFAF8] border-2 border-black px-3 py-2 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:bg-white focus:shadow-[2px_2px_0px_0px_#000] transition placeholder:text-neutral-400"
             />
             <button
               type="submit"
               disabled={members.length === 0}
-              className={`sm:col-span-3 font-black py-2 rounded-xl text-xs sm:text-sm border-2 border-black shadow-neo-sm transition ${
+              className={`sm:col-span-3 font-black py-2 rounded-xl text-xs sm:text-sm border-2 border-black transition ${
                 members.length === 0 
-                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-slate-400' 
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700 active:translate-x-0.5 active:translate-y-0.5'
+                  ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed border-neutral-300' 
+                  : 'bg-[#FFE600] text-black shadow-[3px_3px_0px_0px_#000] hover:bg-[#ebd300] active:translate-x-[2px] active:translate-y-[2px]'
               }`}
             >
-              + Menu
+              + Masuk Menu
             </button>
           </form>
 
           {members.length === 0 && (
-            <p className="text-[11px] text-amber-700 font-bold bg-amber-100 border border-amber-300 rounded-lg p-2 mb-3">
-              💡 Tambahkan minimal satu nama teman dulu sebelum memasukkan menu makanan.
-            </p>
+            <div className="flex items-center gap-2 text-xs text-amber-800 font-bold bg-[#FEF3C7] border-2 border-amber-400/80 rounded-xl p-2.5 mb-3">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-700" />
+              <span>Masukkan minimal satu nama teman sebelum menambah menu.</span>
+            </div>
           )}
 
-          <div className="space-y-3">
-            {items.map((item) => {
-              const allSelected = item.assignedTo.length === members.length && members.length > 0;
-              return (
-                <div 
-                  key={item.id} 
-                  className="border-2 border-black p-3 sm:p-3.5 rounded-xl bg-slate-50 shadow-neo-sm"
-                >
-                  <div className="flex justify-between items-start gap-2 mb-2">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-black text-xs sm:text-sm text-slate-900 truncate">{item.name}</h4>
-                      <p className="text-[11px] sm:text-xs text-slate-600 font-bold mt-0.5">
-                        Rp {item.price.toLocaleString('id-ID')}
-                        <span className="text-slate-400 mx-1">×</span>
-                        {item.quantity} = <strong className="text-slate-900">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</strong>
-                      </p>
-                    </div>
+          {items.length > 0 ? (
+            <div className="space-y-3">
+              {items.map((item) => {
+                const allSelected = item.assignedTo.length === members.length && members.length > 0;
+                return (
+                  <div 
+                    key={item.id} 
+                    className="border-2 border-black p-3 sm:p-3.5 rounded-xl bg-[#FAFAF8] shadow-[3px_3px_0px_0px_#000]"
+                  >
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-black text-xs sm:text-sm text-neutral-900 truncate">{item.name}</h4>
+                        <p className="text-[11px] sm:text-xs text-neutral-600 font-bold mt-0.5">
+                          Rp {item.price.toLocaleString('id-ID')} × {item.quantity} = <strong className="text-black font-extrabold font-['Space_Grotesk'] text-sm">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</strong>
+                        </p>
+                      </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <div className="flex items-center border-2 border-black rounded-lg bg-white shadow-neo-sm">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center border-2 border-black rounded-lg bg-white shadow-[2px_2px_0px_0px_#000]">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQty(item.id, -1)}
+                            className="px-2 py-0.5 text-xs font-black hover:bg-neutral-100"
+                          >
+                            -
+                          </button>
+                          <span className="px-1.5 text-xs font-black font-['Space_Grotesk']">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQty(item.id, 1)}
+                            className="px-2 py-0.5 text-xs font-black hover:bg-neutral-100"
+                          >
+                            +
+                          </button>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => handleUpdateQty(item.id, -1)}
-                          className="px-1.5 sm:px-2 py-0.5 text-xs font-black hover:bg-slate-100"
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="text-neutral-400 hover:text-red-600 p-1 transition"
                         >
-                          -
-                        </button>
-                        <span className="px-1.5 sm:px-2 text-xs font-black">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQty(item.id, 1)}
-                          className="px-1.5 sm:px-2 py-0.5 text-xs font-black hover:bg-slate-100"
-                        >
-                          +
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-black/10 flex flex-wrap gap-1.5 items-center">
                       <button
                         type="button"
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="text-red-500 hover:text-red-700 p-1 active:scale-90 transition"
+                        onClick={() => handleSelectAllMembers(item.id)}
+                        className={`text-[10px] px-2.5 py-1 rounded-lg border-2 border-black font-black transition ${
+                          allSelected 
+                            ? 'bg-black text-white' 
+                            : 'bg-white text-neutral-700 hover:bg-neutral-100'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {allSelected ? '✓ Semua' : 'Pilih Semua'}
                       </button>
+
+                      {members.map((m) => {
+                        const isChecked = item.assignedTo.includes(m);
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => handleToggleMember(item.id, m)}
+                            className={`text-[10px] sm:text-xs px-2.5 py-1 rounded-lg border-2 border-black font-black transition-all ${
+                              isChecked
+                                ? 'bg-[#FFE600] shadow-[2px_2px_0px_0px_#000] -translate-y-0.5'
+                                : 'bg-white text-neutral-400 opacity-60 hover:opacity-100'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-
-                  <div className="pt-2 border-t border-slate-200 flex flex-wrap gap-1 items-center">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 mr-0.5">Dimakan:</span>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectAllMembers(item.id)}
-                      className={`text-[10px] sm:text-[11px] px-2 py-0.5 rounded-md border-2 border-black font-extrabold transition ${
-                        allSelected ? 'bg-indigo-100 text-indigo-900' : 'bg-white text-slate-600'
-                      }`}
-                    >
-                      {allSelected ? '✓ Semua' : 'Semua'}
-                    </button>
-
-                    {members.map((m) => {
-                      const isChecked = item.assignedTo.includes(m);
-                      return (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => handleToggleMember(item.id, m)}
-                          className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-md border-2 border-black font-black transition-all ${
-                            isChecked
-                              ? 'bg-amber-300 shadow-neo-sm -translate-y-0.5'
-                              : 'bg-white text-slate-400 opacity-60 hover:opacity-100'
-                          }`}
-                        >
-                          {m}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            {items.length === 0 && (
-              <p className="text-xs text-slate-400 font-bold italic py-2 text-center">Belum ada menu yang dimasukkan.</p>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-neutral-300 rounded-xl p-3 text-center bg-[#FAF9F5]">
+              <p className="text-xs text-neutral-400 font-bold">
+                Belum ada menu yang dimasukkan.
+              </p>
+            </div>
+          )}
         </section>
 
-        {/* Bagian 3: Pajak, Servis & Diskon */}
-        <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">Penyesuaian Biaya Akhir</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-3.5">
+        {/* 3. Pajak, Diskon & Rekening */}
+        <section className="bg-white border-[2.5px] border-black shadow-[4px_4px_0px_0px_#000] p-4 sm:p-5 rounded-2xl mb-5">
+          <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-neutral-800 flex items-center gap-2 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] border border-black"></span>
+            Pajak, Servis & Diskon
+          </h2>
+
+          <div className="grid grid-cols-3 gap-2.5 mb-3.5">
             <div>
-              <label className="text-[11px] sm:text-xs font-bold block mb-1">Pajak / PB1 (%)</label>
+              <label className="text-[10px] font-black uppercase tracking-wider block mb-1 text-neutral-600">Pajak (%)</label>
               <input
                 type="number"
                 value={taxPercent}
                 onChange={(e) => setTaxPercent(e.target.value)}
-                className="w-full border-2 border-black px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold focus:outline-none"
+                className="w-full bg-[#FAFAF8] border-2 border-black px-2.5 py-2 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:bg-white font-['Space_Grotesk']"
               />
             </div>
             <div>
-              <label className="text-[11px] sm:text-xs font-bold block mb-1">Service Charge (%)</label>
+              <label className="text-[10px] font-black uppercase tracking-wider block mb-1 text-neutral-600">Servis (%)</label>
               <input
                 type="number"
                 value={servicePercent}
                 onChange={(e) => setServicePercent(e.target.value)}
-                className="w-full border-2 border-black px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold focus:outline-none"
+                className="w-full bg-[#FAFAF8] border-2 border-black px-2.5 py-2 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:bg-white font-['Space_Grotesk']"
               />
             </div>
             <div>
-              <label className="text-[11px] sm:text-xs font-bold block mb-1">Diskon Promo (Rp)</label>
+              <label className="text-[10px] font-black uppercase tracking-wider block mb-1 text-neutral-600">Diskon (Rp)</label>
               <input
                 type="number"
                 value={discountAmount}
                 onChange={(e) => setDiscountAmount(e.target.value)}
-                className="w-full border-2 border-black px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold focus:outline-none text-emerald-600"
+                className="w-full bg-[#FAFAF8] border-2 border-black px-2.5 py-2 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:bg-white text-emerald-600 font-['Space_Grotesk']"
               />
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-[11px] sm:text-xs font-bold cursor-pointer select-none bg-yellow-50 p-2.5 rounded-xl border border-black/20">
+          <label className="flex items-center gap-2 text-xs font-bold cursor-pointer select-none bg-[#FEFCE8] p-3 rounded-xl border-2 border-black/10 hover:border-black/30 transition mb-3">
             <input
               type="checkbox"
               checked={roundUp}
@@ -425,118 +461,130 @@ export default function App() {
               className="w-4 h-4 accent-black rounded cursor-pointer shrink-0"
             />
             <Coins className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>Bulatkan rupiah ke ratusan terdekat (Rp 100)</span>
+            <span>Bulatkan ke ratusan terdekat (Rp 100)</span>
           </label>
+
+          {/* Accordion Atur Rekening */}
+          <div className="border-t-2 border-black/10 pt-3">
+            <button
+              type="button"
+              onClick={() => setShowBankForm(!showBankForm)}
+              className="w-full flex justify-between items-center text-xs font-black text-neutral-800 hover:text-black py-1"
+            >
+              <span className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-[#6366F1]" />
+                {accNumber ? `Rekening Tujuan: ${bankName} • ${accNumber}` : '+ Atur Rekening Pembayaran (Opsional)'}
+              </span>
+              {showBankForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showBankForm && (
+              <div className="mt-3 p-3.5 bg-[#FAF9F5] border-2 border-black rounded-xl space-y-2.5 shadow-[2px_2px_0px_0px_#000]">
+                <div className="grid grid-cols-3 gap-2">
+                  <select
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="col-span-1 border-2 border-black px-2.5 py-2 rounded-xl text-xs font-black bg-white"
+                  >
+                    <option value="BCA">BCA</option>
+                    <option value="BRI">BRI</option>
+                    <option value="Mandiri">Mandiri</option>
+                    <option value="BNI">BNI</option>
+                    <option value="BSI">BSI</option>
+                    <option value="GoPay">GoPay</option>
+                    <option value="DANA">DANA</option>
+                    <option value="OVO">OVO</option>
+                    <option value="ShopeePay">ShopeePay</option>
+                    <option value="Seabank">Seabank</option>
+                    <option value="Bank Jago">Bank Jago</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Nomor Rekening / E-Wallet"
+                    value={accNumber}
+                    onChange={(e) => setAccNumber(e.target.value)}
+                    className="col-span-2 border-2 border-black px-3 py-2 rounded-xl text-xs font-bold bg-white font-['Space_Grotesk']"
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Atas Nama (Cth: Alifian)"
+                  value={accHolder}
+                  onChange={(e) => setAccHolder(e.target.value)}
+                  className="w-full border-2 border-black px-3 py-2 rounded-xl text-xs font-bold bg-white"
+                />
+                <p className="text-[10px] text-neutral-500 font-semibold italic">
+                  *Tersimpan aman di browsermu tanpa perlu login.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
 
-        {/* Bagian 4: Rincian Pembayaran */}
-        <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-6">
+        {/* 4. Rincian & Aksi */}
+        <section className="bg-white border-[2.5px] border-black shadow-[4px_4px_0px_0px_#000] p-4 sm:p-5 rounded-2xl mb-6">
           <div className="flex justify-between items-center gap-2 mb-3.5">
-            <h2 className="text-sm sm:text-base font-black tracking-tight">Rincian Pembayaran</h2>
-            <span className="text-xs font-black bg-indigo-100 text-indigo-900 border border-indigo-950 px-2 py-1 rounded-md shrink-0">
-              Total: Rp {Math.round(totalBill).toLocaleString('id-ID')}
-            </span>
+            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-neutral-800">
+              Rincian Per Orang
+            </h2>
+            <div className="bg-[#FFE600] border-2 border-black px-3 py-1 rounded-xl shadow-[2px_2px_0px_0px_#000]">
+              <span className="text-xs font-black font-['Space_Grotesk'] text-black">
+                Total: Rp {Math.round(totalBill).toLocaleString('id-ID')}
+              </span>
+            </div>
           </div>
 
           <div className="space-y-2 mb-4">
             {members.map((m) => (
               <div 
                 key={m} 
-                className="flex justify-between items-center bg-yellow-100/70 border-2 border-black p-2.5 sm:p-3.5 rounded-xl shadow-neo-sm"
+                className="flex justify-between items-center bg-[#FEFCE8] border-2 border-black p-3 rounded-xl shadow-[2px_2px_0px_0px_#000]"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black shrink-0"></span>
                   <span className="font-black text-xs sm:text-sm truncate">{m}</span>
                 </div>
-                <span className="font-black text-xs sm:text-base text-indigo-800 shrink-0 ml-2">
+                <span className="font-black font-['Space_Grotesk'] text-sm sm:text-base text-neutral-900 shrink-0 ml-2">
                   Rp {(memberTotals[m] || 0).toLocaleString('id-ID')}
                 </span>
               </div>
             ))}
+
             {members.length === 0 && (
-              <p className="text-xs text-slate-400 font-bold italic py-2 text-center">Belum ada data patungan untuk dihitung.</p>
+              <div className="border-2 border-dashed border-neutral-300 rounded-xl p-4 text-center bg-[#FAF9F5]">
+                <p className="text-xs text-neutral-400 font-bold">
+                  Belum ada hitungan. Masukkan nama & pesanan terlebih dahulu.
+                </p>
+              </div>
             )}
           </div>
 
-          {/* Kartu Rekening BCA & BRI */}
-          <div className="mb-4 pt-3 border-t-2 border-black/10">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 mb-2.5 flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4 text-indigo-600" /> Transfer Pembayaran (Klik Salin)
-            </h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {bankAccounts.map((account) => {
-                const isBca = account.bank === 'BCA';
-                const isCopied = copiedBank === account.id;
-
-                return (
-                  <div
-                    key={account.id}
-                    className={`border-2 border-black p-3 rounded-xl shadow-neo-sm flex flex-col justify-between ${
-                      isBca ? 'bg-blue-50' : 'bg-cyan-50'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border border-black text-white ${
-                          isBca ? 'bg-blue-600' : 'bg-sky-700'
-                        }`}>
-                          {account.bank}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-500 truncate max-w-[130px]" title={account.holder}>
-                          a/n {account.holder}
-                        </span>
-                      </div>
-                      <p className="font-mono font-black text-sm text-slate-900 tracking-wider my-1">
-                        {account.number}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleCopyNorek(account.id, account.number)}
-                      className="mt-2 w-full bg-white hover:bg-slate-100 active:translate-y-0.5 border-2 border-black rounded-lg py-1.5 px-2 text-[11px] font-black flex items-center justify-center gap-1.5 transition"
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                          <span className="text-emerald-700">Tersalin!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Salin No. Rekening</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* Tombol Utama */}
+          <div className="space-y-2.5">
             <button
-              onClick={handleCopyWhatsApp}
-              className="w-full bg-emerald-400 hover:bg-emerald-500 text-black border-2 border-black font-black py-2.5 sm:py-3 rounded-xl shadow-neo active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 transition text-xs sm:text-sm"
+              onClick={handleShareWhatsApp}
+              disabled={members.length === 0}
+              className={`w-full py-3.5 rounded-xl border-[2.5px] border-black font-black text-xs sm:text-sm transition flex items-center justify-center gap-2 ${
+                members.length === 0 
+                  ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed border-neutral-300' 
+                  : 'bg-[#10B981] hover:bg-[#0ea372] text-white shadow-[4px_4px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px]'
+              }`}
             >
-              {copied ? <Check className="w-4 h-4 stroke-[3]" /> : <Share2 className="w-4 h-4 stroke-[3]" />}
-              {copied ? 'Tersalin!' : 'Salin Rincian ke WA'}
+              <Share2 className="w-4 h-4 stroke-[2.5]" /> Bagikan ke WhatsApp
             </button>
 
             <button
-              onClick={handleOpenWhatsApp}
-              className="w-full bg-yellow-300 hover:bg-yellow-400 text-black border-2 border-black font-black py-2.5 sm:py-3 rounded-xl shadow-neo active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 transition text-xs sm:text-sm"
+              onClick={handleCopyText}
+              disabled={members.length === 0}
+              className="w-full py-2.5 bg-white hover:bg-neutral-50 text-neutral-800 border-2 border-black rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:translate-x-[1px] active:translate-y-[1px]"
             >
-              <ExternalLink className="w-4 h-4 stroke-[3]" /> Buka di WhatsApp
+              {copied ? <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-600" /> : null}
+              {copied ? 'Teks Berhasil Disalin!' : 'Salin Teks Rincian Saja'}
             </button>
           </div>
         </section>
 
-        <footer className="text-center text-[11px] sm:text-xs font-bold text-slate-500 pt-2 pb-4">
-          Dibuat oleh <a href="https://lifianzhi.my.id" target="_blank" rel="noreferrer" className="underline text-black">Alifian</a> • lifianzhi.my.id
-        </footer>
+        {/* Footer */}
       </main>
     </div>
   );
