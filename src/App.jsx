@@ -13,18 +13,16 @@ export default function App() {
 
   const [copiedBank, setCopiedBank] = useState(null);
 
+  // Default state kosong (fresh)
   const [members, setMembers] = useState(() => {
     const saved = localStorage.getItem('sb_members');
-    return saved ? JSON.parse(saved) : ['Alif', 'Rizky'];
+    return saved ? JSON.parse(saved) : [];
   });
   const [newMember, setNewMember] = useState('');
 
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('sb_items');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'Nasi Goreng Spesial', price: 28000, quantity: 1, assignedTo: ['Alif'] },
-      { id: 2, name: 'Es Teh Manis', price: 6000, quantity: 2, assignedTo: ['Alif', 'Rizky'] },
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
   const [itemName, setItemName] = useState('');
   const [itemPrice, setItemPrice] = useState('');
@@ -112,9 +110,13 @@ export default function App() {
   };
 
   const handleResetData = () => {
-    if (confirm('Yakin ingin mereset semua hitungan patungan?')) {
+    if (confirm('Yakin ingin mereset dan mengosongkan semua data patungan?')) {
+      setMembers([]);
       setItems([]);
       setDiscountAmount(0);
+      localStorage.removeItem('sb_members');
+      localStorage.removeItem('sb_items');
+      localStorage.removeItem('sb_discount');
     }
   };
 
@@ -163,9 +165,11 @@ export default function App() {
 
   const generateMessageText = () => {
     const lines = [
-      '🧾 *RINCIAN PATUNGAN (SPLIT BILL)*',
+      '🧾 *RINCIAN PATUNGAN (SPLIT-BILL)*',
       '────────────────────────────',
-      ...members.map(m => `👤 *${m}*: Rp ${(memberTotals[m] || 0).toLocaleString('id-ID')}`),
+      ...(members.length > 0 
+        ? members.map(m => `👤 *${m}*: Rp ${(memberTotals[m] || 0).toLocaleString('id-ID')}`)
+        : ['(Belum ada rincian peserta)']),
       '────────────────────────────',
       `💰 *Total Tagihan*: Rp ${Math.round(totalBill).toLocaleString('id-ID')}`,
       '',
@@ -196,11 +200,11 @@ export default function App() {
         <header className="bg-yellow-300 border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
           <div className="flex justify-between items-start gap-2">
             <div>
-              <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2 tracking-tight">
-                <Receipt className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" /> SplitBill Pro
+              <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2 tracking-tight uppercase">
+                <Receipt className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" /> SPLIT-BILL
               </h1>
               <p className="text-xs sm:text-sm font-semibold text-slate-800 mt-1">
-                Kalkulator patungan adil dengan pajak & diskon proporsional.
+                Bagi rata, bayar pas, pertemanan aman.
               </p>
             </div>
             <button
@@ -213,7 +217,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* Bagian 1: Teman */}
+        {/* Bagian 1: Peserta */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
           <h2 className="text-sm sm:text-base font-black flex items-center gap-2 mb-3 tracking-tight">
             <Users className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 shrink-0" /> Siapa yang ikut patungan?
@@ -221,7 +225,7 @@ export default function App() {
           <form onSubmit={handleAddMember} className="flex gap-2 mb-3.5">
             <input
               type="text"
-              placeholder="Nama teman..."
+              placeholder="Ketik nama teman..."
               value={newMember}
               onChange={(e) => setNewMember(e.target.value)}
               className="flex-1 min-w-0 border-2 border-black px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400"
@@ -251,10 +255,13 @@ export default function App() {
                 </button>
               </span>
             ))}
+            {members.length === 0 && (
+              <p className="text-xs text-slate-400 font-bold italic py-1">Belum ada orang. Tambahkan nama teman di atas.</p>
+            )}
           </div>
         </section>
 
-        {/* Bagian 2: Item Menu */}
+        {/* Bagian 2: Daftar Item */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
           <h2 className="text-sm sm:text-base font-black mb-3 tracking-tight">Menu & Item Pesanan</h2>
           
@@ -275,11 +282,22 @@ export default function App() {
             />
             <button
               type="submit"
-              className="sm:col-span-3 bg-indigo-600 text-white font-black py-2 rounded-xl text-xs sm:text-sm border-2 border-black shadow-neo-sm hover:bg-indigo-700 active:translate-x-0.5 active:translate-y-0.5 transition"
+              disabled={members.length === 0}
+              className={`sm:col-span-3 font-black py-2 rounded-xl text-xs sm:text-sm border-2 border-black shadow-neo-sm transition ${
+                members.length === 0 
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-slate-400' 
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700 active:translate-x-0.5 active:translate-y-0.5'
+              }`}
             >
               + Menu
             </button>
           </form>
+
+          {members.length === 0 && (
+            <p className="text-[11px] text-amber-700 font-bold bg-amber-100 border border-amber-300 rounded-lg p-2 mb-3">
+              💡 Tambahkan minimal satu nama teman dulu sebelum memasukkan menu makanan.
+            </p>
+          )}
 
           <div className="space-y-3">
             {items.map((item) => {
@@ -360,10 +378,13 @@ export default function App() {
                 </div>
               );
             })}
+            {items.length === 0 && (
+              <p className="text-xs text-slate-400 font-bold italic py-2 text-center">Belum ada menu yang dimasukkan.</p>
+            )}
           </div>
         </section>
 
-        {/* Bagian 3: Biaya Akhir */}
+        {/* Bagian 3: Pajak, Servis & Diskon */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">Penyesuaian Biaya Akhir</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-3.5">
@@ -408,7 +429,7 @@ export default function App() {
           </label>
         </section>
 
-        {/* Bagian 4: Pembayaran & Opsi Transfer BCA & BRI */}
+        {/* Bagian 4: Rincian Pembayaran */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-6">
           <div className="flex justify-between items-center gap-2 mb-3.5">
             <h2 className="text-sm sm:text-base font-black tracking-tight">Rincian Pembayaran</h2>
@@ -432,6 +453,9 @@ export default function App() {
                 </span>
               </div>
             ))}
+            {members.length === 0 && (
+              <p className="text-xs text-slate-400 font-bold italic py-2 text-center">Belum ada data patungan untuk dihitung.</p>
+            )}
           </div>
 
           {/* Kartu Rekening BCA & BRI */}
