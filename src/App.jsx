@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Trash2, Users, Receipt, Share2, Check, 
   ExternalLink, RotateCcw, Coins, QrCode, X
