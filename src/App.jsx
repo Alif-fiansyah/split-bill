@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 import { 
   Plus, Trash2, Users, Receipt, Share2, Check, 
-  ExternalLink, RotateCcw, Coins, QrCode, X 
+  ExternalLink, RotateCcw, Coins, Copy, CreditCard 
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 
 export default function App() {
+  // Rekening BCA & BRI
+  const bankAccounts = [
+    { id: 'bca', bank: 'BCA', number: '0092994366', holder: 'Muhammad Rizky Alifiansyah' },
+    { id: 'bri', bank: 'BRI', number: '583901011084500', holder: 'Muhammad Rizky Alifiansyah' }
+  ];
+
+  const [copiedBank, setCopiedBank] = useState(null);
+
   const [members, setMembers] = useState(() => {
     const saved = localStorage.getItem('sb_members');
     return saved ? JSON.parse(saved) : ['Alif', 'Rizky'];
@@ -28,9 +35,6 @@ export default function App() {
   const [discountAmount, setDiscountAmount] = useState(() => Number(localStorage.getItem('sb_discount')) || 0);
   const [roundUp, setRoundUp] = useState(true);
 
-  const [paymentInfo, setPaymentInfo] = useState(() => localStorage.getItem('sb_payment') || 'BCA / GoPay: 0812xxxxxx a/n Alif');
-  const [qrValue, setQrValue] = useState(() => localStorage.getItem('sb_qr') || '081234567890');
-  const [showQrModal, setShowQrModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -39,9 +43,7 @@ export default function App() {
     localStorage.setItem('sb_tax', taxPercent.toString());
     localStorage.setItem('sb_service', servicePercent.toString());
     localStorage.setItem('sb_discount', discountAmount.toString());
-    localStorage.setItem('sb_payment', paymentInfo);
-    localStorage.setItem('sb_qr', qrValue);
-  }, [members, items, taxPercent, servicePercent, discountAmount, paymentInfo, qrValue]);
+  }, [members, items, taxPercent, servicePercent, discountAmount]);
 
   const handleAddMember = (e) => {
     e.preventDefault();
@@ -116,6 +118,12 @@ export default function App() {
     }
   };
 
+  const handleCopyNorek = (bankId, number) => {
+    navigator.clipboard.writeText(number);
+    setCopiedBank(bankId);
+    setTimeout(() => setCopiedBank(null), 2000);
+  };
+
   const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const memberSubtotals = {};
@@ -159,10 +167,12 @@ export default function App() {
       '────────────────────────────',
       ...members.map(m => `👤 *${m}*: Rp ${(memberTotals[m] || 0).toLocaleString('id-ID')}`),
       '────────────────────────────',
-      `💰 *Total*: Rp ${Math.round(totalBill).toLocaleString('id-ID')}`,
-      paymentInfo ? `💳 *Transfer*: ${paymentInfo}` : '',
+      `💰 *Total Tagihan*: Rp ${Math.round(totalBill).toLocaleString('id-ID')}`,
       '',
-      '_Dihitung via lifianzhi.my.id_'
+      '💳 *Transfer Pembayaran ke:*',
+      ...bankAccounts.map(b => `• *${b.bank}*: ${b.number} (a/n ${b.holder})`),
+      '',
+      '_Dihitung via split.lifianzhi.my.id_'
     ];
     return lines.filter(Boolean).join('\n');
   };
@@ -203,7 +213,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* Bagian 1: Peserta */}
+        {/* Bagian 1: Teman */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
           <h2 className="text-sm sm:text-base font-black flex items-center gap-2 mb-3 tracking-tight">
             <Users className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 shrink-0" /> Siapa yang ikut patungan?
@@ -241,13 +251,10 @@ export default function App() {
                 </button>
               </span>
             ))}
-            {members.length === 0 && (
-              <p className="text-xs text-slate-400 font-bold italic py-1">Tambahkan minimal 1 nama di atas.</p>
-            )}
           </div>
         </section>
 
-        {/* Bagian 2: Daftar Item */}
+        {/* Bagian 2: Item Menu */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
           <h2 className="text-sm sm:text-base font-black mb-3 tracking-tight">Menu & Item Pesanan</h2>
           
@@ -356,7 +363,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* Bagian 3: Pajak, Servis & Diskon */}
+        {/* Bagian 3: Biaya Akhir */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-5 sm:mb-6">
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">Penyesuaian Biaya Akhir</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-3.5">
@@ -401,7 +408,7 @@ export default function App() {
           </label>
         </section>
 
-        {/* Bagian 4: Hasil & Tombol Aksi */}
+        {/* Bagian 4: Pembayaran & Opsi Transfer BCA & BRI */}
         <section className="bg-white border-2 border-black shadow-neo p-4 sm:p-5 rounded-2xl mb-6">
           <div className="flex justify-between items-center gap-2 mb-3.5">
             <h2 className="text-sm sm:text-base font-black tracking-tight">Rincian Pembayaran</h2>
@@ -427,89 +434,81 @@ export default function App() {
             ))}
           </div>
 
-          <div className="mb-4">
-            <label className="text-[11px] sm:text-xs font-bold block mb-1 text-slate-700">Tujuan Transfer / Info Rekening</label>
-            <input
-              type="text"
-              value={paymentInfo}
-              onChange={(e) => setPaymentInfo(e.target.value)}
-              className="w-full border-2 border-black px-3 py-2 rounded-xl text-xs font-bold focus:outline-none"
-              placeholder="Cth: BCA 12345678 a/n Kamu"
-            />
+          {/* Kartu Rekening BCA & BRI */}
+          <div className="mb-4 pt-3 border-t-2 border-black/10">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 mb-2.5 flex items-center gap-1.5">
+              <CreditCard className="w-4 h-4 text-indigo-600" /> Transfer Pembayaran (Klik Salin)
+            </h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {bankAccounts.map((account) => {
+                const isBca = account.bank === 'BCA';
+                const isCopied = copiedBank === account.id;
+
+                return (
+                  <div
+                    key={account.id}
+                    className={`border-2 border-black p-3 rounded-xl shadow-neo-sm flex flex-col justify-between ${
+                      isBca ? 'bg-blue-50' : 'bg-cyan-50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border border-black text-white ${
+                          isBca ? 'bg-blue-600' : 'bg-sky-700'
+                        }`}>
+                          {account.bank}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 truncate max-w-[130px]" title={account.holder}>
+                          a/n {account.holder}
+                        </span>
+                      </div>
+                      <p className="font-mono font-black text-sm text-slate-900 tracking-wider my-1">
+                        {account.number}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyNorek(account.id, account.number)}
+                      className="mt-2 w-full bg-white hover:bg-slate-100 active:translate-y-0.5 border-2 border-black rounded-lg py-1.5 px-2 text-[11px] font-black flex items-center justify-center gap-1.5 transition"
+                    >
+                      {isCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                          <span className="text-emerald-700">Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Salin No. Rekening</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* Action Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               onClick={handleCopyWhatsApp}
               className="w-full bg-emerald-400 hover:bg-emerald-500 text-black border-2 border-black font-black py-2.5 sm:py-3 rounded-xl shadow-neo active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 transition text-xs sm:text-sm"
             >
               {copied ? <Check className="w-4 h-4 stroke-[3]" /> : <Share2 className="w-4 h-4 stroke-[3]" />}
-              {copied ? 'Tersalin!' : 'Salin WA'}
+              {copied ? 'Tersalin!' : 'Salin Rincian ke WA'}
             </button>
 
             <button
               onClick={handleOpenWhatsApp}
               className="w-full bg-yellow-300 hover:bg-yellow-400 text-black border-2 border-black font-black py-2.5 sm:py-3 rounded-xl shadow-neo active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 transition text-xs sm:text-sm"
             >
-              <ExternalLink className="w-4 h-4 stroke-[3]" /> Buka WA
-            </button>
-
-            <button
-              onClick={() => setShowQrModal(true)}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white border-2 border-black font-black py-2.5 sm:py-3 rounded-xl shadow-neo active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 transition text-xs sm:text-sm"
-            >
-              <QrCode className="w-4 h-4" /> QR Pay / QRIS
+              <ExternalLink className="w-4 h-4 stroke-[3]" /> Buka di WhatsApp
             </button>
           </div>
         </section>
-
-        {/* Modal QRIS Mobile-Friendly */}
-        {showQrModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3.5 sm:p-4">
-            <div className="bg-white border-3 border-black shadow-neo rounded-2xl p-4 sm:p-6 max-w-sm w-full relative">
-              <button
-                onClick={() => setShowQrModal(false)}
-                className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1.5 border-2 border-black rounded-lg hover:bg-red-100 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <h3 className="font-black text-base sm:text-lg mb-1 flex items-center gap-2">
-                <QrCode className="w-5 h-5" /> Scan untuk Bayar
-              </h3>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-semibold mb-3">
-                Arahkan aplikasi e-wallet atau mobile banking ke kode QR ini:
-              </p>
-
-              <div className="bg-amber-100/60 border-2 border-black p-3 rounded-xl flex items-center justify-center mb-3">
-                <QRCodeSVG 
-                  value={qrValue} 
-                  size={160} 
-                  level="H" 
-                  includeMargin={true}
-                />
-              </div>
-
-              <div className="mb-2">
-                <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">
-                  Data QR / Nomor HP / String QRIS:
-                </label>
-                <input
-                  type="text"
-                  value={qrValue}
-                  onChange={(e) => setQrValue(e.target.value)}
-                  className="w-full border-2 border-black px-2.5 py-1.5 rounded-lg text-xs font-bold"
-                  placeholder="081234567890"
-                />
-              </div>
-              <button
-                onClick={() => setShowQrModal(false)}
-                className="w-full mt-2 bg-black text-white font-black py-2 rounded-xl text-xs"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        )}
 
         <footer className="text-center text-[11px] sm:text-xs font-bold text-slate-500 pt-2 pb-4">
           Dibuat oleh <a href="https://lifianzhi.my.id" target="_blank" rel="noreferrer" className="underline text-black">Alifian</a> • lifianzhi.my.id
