@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import { 
-  Plus, Trash2, Users, Receipt, Share2, Check, 
-  RotateCcw, Coins, CreditCard, ChevronDown, ChevronUp,
-  Sparkles, Wallet, UtensilsCrossed, AlertCircle
+  Plus, Trash2, Receipt, Share2, Check, 
+  RotateCcw, Coins, ChevronDown, ChevronUp,
+  Wallet, AlertCircle
 } from 'lucide-react';
 
 export default function App() {
